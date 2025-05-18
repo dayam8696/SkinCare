@@ -1,5 +1,6 @@
 package com.example.skincare
 
+import SkinCheckApp
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -62,7 +63,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.skincare.ml.SkinDiseaseModel
+import com.example.skincare.ui.ResultScreen
+import com.example.skincare.ui.SkinDiseaseDetectScreen
+import com.example.skincare.ui.SkinDiseaseResult
+import com.example.skincare.ui.WelcomeScreen
 import com.example.skincare.ui.theme.SkinCareTheme
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
@@ -98,15 +107,50 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SkinDiseaseScreen()
+                    // Setup navigation
+                    val navController = rememberNavController()
+                    NavHost(navController = navController, startDestination = "WelcomeScreen") {
+                        composable("home_screen"){
+                            SkinCheckApp(navController)
+                        }
+                        composable("PredictionScreen") {
+                            SkinDiseaseDetectScreen(navController = navController)
+                        }
+                        composable("skin_disease_detect") {
+
+                        }
+                        composable("ResultScreen"){
+                            ResultScreen(navController)
+                        }
+                        composable("WelcomeScreen") {
+                            WelcomeScreen(navController = navController, onStartClick = {
+                                // Navigate to another screen, e.g., "HomeScreen"
+                                navController.navigate("home_screen")
+                            })
+                        }
+
+
+
+
+//                        composable(
+//                            route = "result?prediction={prediction}",
+//                            arguments = listOf(navArgument("prediction") { type = NavType.StringType })
+//                        ) { backStackEntry ->
+//                            val prediction = backStackEntry.arguments?.getString("prediction") ?: "Unknown"
+//                            ResultScreen(
+//                                prediction = prediction,
+//                                modifier = Modifier
+//                            )
+                        }
+                    }
                 }
             }
         }
     }
-}
+
 
 @Composable
-fun SkinDiseaseScreen(modifier: Modifier = Modifier) {
+fun SkinDiseaseScreen(modifier: Modifier = Modifier, navController: NavController? = null) {
     val context = LocalContext.current
     val diseases = listOf(
         "Actinic keratosis", "Atopic Dermatitis", "Benign keratosis", "Dermatofibroma",
@@ -281,6 +325,10 @@ fun SkinDiseaseScreen(modifier: Modifier = Modifier) {
                         isLoading = true
                         bitmap?.let { bmp ->
                             prediction = predictDisease(context, bmp, diseases)
+                            prediction?.let { pred ->
+                                SkinDiseaseResult.prediction = pred // Store prediction in the object
+                                navController?.navigate("result?prediction=${Uri.encode(pred)}")
+                            }
                         } ?: run {
                             Toast.makeText(context, "Please select an image", Toast.LENGTH_SHORT).show()
                         }
@@ -419,7 +467,7 @@ fun preprocessImage(bitmap: Bitmap): ByteBuffer {
     softwareBitmap.getPixels(pixels, 0, 240, 0, 0, 240, 240)
 
     for (pixel in pixels) {
-        // Normalize pixel values to [0,1] as per your notebook (img/255.)
+        // Normalize pixel values to [0,1] as per your notebookarce (img/255.)
         byteBuffer.putFloat(((pixel shr 16) and 0xFF) / 255.0f) // R
         byteBuffer.putFloat(((pixel shr 8) and 0xFF) / 255.0f)  // G
         byteBuffer.putFloat((pixel and 0xFF) / 255.0f)         // B
